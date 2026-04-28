@@ -1,97 +1,179 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Vehicle Pro Dashboard</title>
+  <title>Vehicle Monitor</title>
 
   <script src="/socket.io/socket.io.js"></script>
-
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     body {
-      background: #0b0f1a;
-      color: white;
-      font-family: Arial;
-      text-align: center;
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0b1c2c, #050b14);
+      color: #00ffc3;
     }
 
     h1 {
-      color: #00ffc3;
+      text-align: center;
+      padding: 15px;
+      letter-spacing: 2px;
     }
 
-    .grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
+    .container {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      padding: 20px;
     }
 
     .card {
-      background: #121826;
-      margin: 10px;
-      padding: 15px;
+      background: #0b1c2c;
       border-radius: 12px;
-      width: 180px;
-      box-shadow: 0 0 15px rgba(0,255,200,0.2);
+      padding: 15px;
+      box-shadow: 0 0 20px rgba(0,255,200,0.1);
+    }
+
+    .flex {
+      display: flex;
+      justify-content: space-around;
+      gap: 10px;
+    }
+
+    .axis {
+      flex: 1;
+      background: #071421;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .axis h3 {
+      color: #7fffd4;
+      margin-bottom: 10px;
     }
 
     .value {
-      font-size: 20px;
-      color: #00ffc3;
+      font-size: 28px;
+      font-weight: bold;
     }
 
-    #map {
-      height: 300px;
-      margin: 20px;
-      border-radius: 10px;
+    .status {
+      text-align: center;
+      margin-top: 10px;
+      padding: 8px;
+      border-radius: 20px;
+      background: #003d2e;
+      color: #00ff9c;
+    }
+
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .event-box {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .event {
+      background: #071421;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      flex: 1;
+      margin: 5px;
+    }
+
+    .log {
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 12px;
     }
 
     canvas {
-      max-width: 90%;
-      margin: 20px auto;
+      background: #071421;
+      border-radius: 10px;
+      padding: 10px;
     }
 
-    button {
-      padding: 10px 20px;
-      background: #00ffc3;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      margin: 10px;
+    .gauge {
+      text-align: center;
+      font-size: 30px;
+      padding: 20px;
     }
   </style>
 </head>
 
 <body>
 
-<h1>🚗 Vehicle Analytics Dashboard</h1>
+<h1>🚗 VEHICLE MONITOR</h1>
 
-<div class="grid">
+<div class="container">
 
-  <div class="card"><h3>State</h3><div id="state" class="value">---</div></div>
-  <div class="card"><h3>Speed</h3><div id="speed" class="value">0</div></div>
-  <div class="card"><h3>Sats</h3><div id="sats" class="value">0</div></div>
+  <!-- LEFT SIDE -->
+  <div>
 
-  <div class="card"><h3>AX</h3><div id="ax" class="value">0</div></div>
-  <div class="card"><h3>AY</h3><div id="ay" class="value">0</div></div>
-  <div class="card"><h3>AZ</h3><div id="az" class="value">0</div></div>
+    <div class="card">
+      <h3>ADXL345 ACCELEROMETER</h3>
 
-  <div class="card"><h3>Collisions</h3><div id="collisionCount" class="value">0</div></div>
-  <div class="card"><h3>Rash</h3><div id="rashCount" class="value">0</div></div>
-  <div class="card"><h3>Tow</h3><div id="towCount" class="value">0</div></div>
-  <div class="card"><h3>Topple</h3><div id="toppleCount" class="value">0</div></div>
+      <div class="flex">
+        <div class="axis">
+          <h3>X</h3>
+          <div id="ax" class="value">0</div>
+        </div>
+
+        <div class="axis">
+          <h3>Y</h3>
+          <div id="ay" class="value">0</div>
+        </div>
+
+        <div class="axis">
+          <h3>Z</h3>
+          <div id="az" class="value">0</div>
+        </div>
+      </div>
+
+      <div id="state" class="status">NORMAL</div>
+    </div>
+
+    <div class="card">
+      <h3>ACCELERATION GRAPH</h3>
+      <canvas id="chart"></canvas>
+    </div>
+
+  </div>
+
+  <!-- RIGHT SIDE -->
+  <div class="right-panel">
+
+    <div class="card gauge">
+      <h3>Magnitude</h3>
+      <div id="mag">0</div>
+    </div>
+
+    <div class="card">
+      <h3>EVENT COUNTS</h3>
+      <div class="event-box">
+        <div class="event">Collision<br><span id="c1">0</span></div>
+        <div class="event">Rash<br><span id="c2">0</span></div>
+      </div>
+      <div class="event-box">
+        <div class="event">Tow<br><span id="c3">0</span></div>
+        <div class="event">Topple<br><span id="c4">0</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>EVENT LOG</h3>
+      <div id="log" class="log"></div>
+    </div>
+
+  </div>
 
 </div>
-
-<button onclick="resetCounts()">Reset Counters</button>
-
-<canvas id="chart"></canvas>
-
-<div id="map"></div>
 
 <script>
 const socket = io({ transports: ["websocket"] });
@@ -104,66 +186,59 @@ let counts = {
   TOPPLE: 0
 };
 
-// History buffers
+// Chart
 let labels = [];
 let axData = [];
 let ayData = [];
 let azData = [];
 
-// Chart
-const ctx = document.getElementById('chart').getContext('2d');
+const ctx = document.getElementById("chart").getContext("2d");
 
 const chart = new Chart(ctx, {
-  type: 'line',
+  type: "line",
   data: {
     labels: labels,
     datasets: [
-      { label: 'AX', data: axData, borderColor: 'red' },
-      { label: 'AY', data: ayData, borderColor: 'yellow' },
-      { label: 'AZ', data: azData, borderColor: 'cyan' }
+      { label: "X", data: axData, borderColor: "cyan" },
+      { label: "Y", data: ayData, borderColor: "yellow" },
+      { label: "Z", data: azData, borderColor: "green" }
     ]
   },
   options: {
     animation: false,
-    scales: {
-      y: { min: -2, max: 2 }
-    }
+    scales: { y: { min: -2, max: 2 } }
   }
 });
 
-// Map
-let map = L.map('map').setView([28.0, 77.0], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-let marker = L.marker([28.0, 77.0]).addTo(map);
-
-// Reset
-function resetCounts() {
-  counts = { COLLISION:0, RASH:0, TOW:0, TOPPLE:0 };
-}
-
-// Socket data
 socket.on("data", (msg) => {
   const d = JSON.parse(msg);
 
+  // Values
+  document.getElementById("ax").innerText = d.ax.toFixed(2);
+  document.getElementById("ay").innerText = d.ay.toFixed(2);
+  document.getElementById("az").innerText = d.az.toFixed(2);
+  document.getElementById("mag").innerText = d.mag.toFixed(2);
   document.getElementById("state").innerText = d.state;
-  document.getElementById("speed").innerText = d.speed;
-  document.getElementById("sats").innerText = d.sats;
-
-  document.getElementById("ax").innerText = d.ax;
-  document.getElementById("ay").innerText = d.ay;
-  document.getElementById("az").innerText = d.az;
 
   // Count events
   if (counts[d.state] !== undefined) {
     counts[d.state]++;
   }
 
-  document.getElementById("collisionCount").innerText = counts.COLLISION;
-  document.getElementById("rashCount").innerText = counts.RASH;
-  document.getElementById("towCount").innerText = counts.TOW;
-  document.getElementById("toppleCount").innerText = counts.TOPPLE;
+  document.getElementById("c1").innerText = counts.COLLISION;
+  document.getElementById("c2").innerText = counts.RASH;
+  document.getElementById("c3").innerText = counts.TOW;
+  document.getElementById("c4").innerText = counts.TOPPLE;
 
-  // Graph update
+  // Log
+  if (d.state !== "NORMAL") {
+    const log = document.getElementById("log");
+    const entry = document.createElement("div");
+    entry.innerText = `${d.state} | X:${d.ax.toFixed(2)} Y:${d.ay.toFixed(2)} Z:${d.az.toFixed(2)}`;
+    log.prepend(entry);
+  }
+
+  // Graph
   labels.push("");
   axData.push(d.ax);
   ayData.push(d.ay);
@@ -177,13 +252,6 @@ socket.on("data", (msg) => {
   }
 
   chart.update();
-
-  // Map update
-  if (d.lat && d.lng) {
-    const pos = [parseFloat(d.lat), parseFloat(d.lng)];
-    marker.setLatLng(pos);
-    map.setView(pos, 15);
-  }
 });
 </script>
 
