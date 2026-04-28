@@ -2,7 +2,12 @@
 <html>
 <head>
   <title>Vehicle Dashboard</title>
+
   <script src="/socket.io/socket.io.js"></script>
+
+  <!-- LEAFLET -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     body {
@@ -39,7 +44,7 @@
     }
 
     #map {
-      height: 300px;
+      height: 350px;
       width: 90%;
       margin: 20px auto;
       border-radius: 10px;
@@ -84,23 +89,22 @@
 <div id="map"></div>
 
 <script>
-const socket = io();
+const socket = io({
+  transports: ["websocket"]
+});
 
-let map, marker;
+// Leaflet map
+let map = L.map('map').setView([28.0, 77.0], 13);
 
-function initMap(lat = 28.0, lng = 77.0) {
-    map = new google.maps.Map(document.getElementById("map"), {
-        zoom: 15,
-        center: { lat, lng },
-    });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+}).addTo(map);
 
-    marker = new google.maps.Marker({
-        position: { lat, lng },
-        map: map
-    });
-}
+let marker = L.marker([28.0, 77.0]).addTo(map);
 
 socket.on("data", (msg) => {
+    console.log("UI received:", msg);
+
     const data = JSON.parse(msg);
 
     document.getElementById("state").innerText = data.state;
@@ -109,17 +113,14 @@ socket.on("data", (msg) => {
     document.getElementById("lat").innerText = data.lat;
     document.getElementById("lng").innerText = data.lng;
 
-    if (map && data.lat && data.lng) {
-        const pos = { lat: parseFloat(data.lat), lng: parseFloat(data.lng) };
-        map.setCenter(pos);
-        marker.setPosition(pos);
+    if (data.lat && data.lng) {
+        const lat = parseFloat(data.lat);
+        const lng = parseFloat(data.lng);
+
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
     }
 });
-</script>
-
-<!-- Google Maps API -->
-<script async defer
-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfKK_g8FCdiCNwA6y1R0OZYo7oFQMUc1k&callback=initMap">
 </script>
 
 </body>
