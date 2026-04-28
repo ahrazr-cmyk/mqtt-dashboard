@@ -6,6 +6,10 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -17,7 +21,6 @@
     h1 {
       text-align: center;
       padding: 15px;
-      letter-spacing: 2px;
     }
 
     .container {
@@ -48,13 +51,8 @@
       text-align: center;
     }
 
-    .axis h3 {
-      color: #7fffd4;
-      margin-bottom: 10px;
-    }
-
     .value {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: bold;
     }
 
@@ -64,7 +62,6 @@
       padding: 8px;
       border-radius: 20px;
       background: #003d2e;
-      color: #00ff9c;
     }
 
     .right-panel {
@@ -75,16 +72,15 @@
 
     .event-box {
       display: flex;
-      justify-content: space-between;
     }
 
     .event {
-      background: #071421;
-      padding: 10px;
-      border-radius: 8px;
-      text-align: center;
       flex: 1;
       margin: 5px;
+      padding: 10px;
+      background: #071421;
+      border-radius: 8px;
+      text-align: center;
     }
 
     .log {
@@ -93,16 +89,25 @@
       font-size: 12px;
     }
 
+    #map {
+      height: 300px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      background: #00ffc3;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
     canvas {
       background: #071421;
       border-radius: 10px;
       padding: 10px;
-    }
-
-    .gauge {
-      text-align: center;
-      font-size: 30px;
-      padding: 20px;
     }
   </style>
 </head>
@@ -113,11 +118,11 @@
 
 <div class="container">
 
-  <!-- LEFT SIDE -->
+  <!-- LEFT -->
   <div>
 
     <div class="card">
-      <h3>ADXL345 ACCELEROMETER</h3>
+      <h3>ADXL345</h3>
 
       <div class="flex">
         <div class="axis">
@@ -140,34 +145,45 @@
     </div>
 
     <div class="card">
-      <h3>ACCELERATION GRAPH</h3>
+      <h3>Acceleration Graph</h3>
       <canvas id="chart"></canvas>
+    </div>
+
+    <!-- 🔥 MAP ADDED -->
+    <div class="card">
+      <h3>Live Location</h3>
+      <div id="map"></div>
     </div>
 
   </div>
 
-  <!-- RIGHT SIDE -->
+  <!-- RIGHT -->
   <div class="right-panel">
 
-    <div class="card gauge">
+    <div class="card">
       <h3>Magnitude</h3>
-      <div id="mag">0</div>
+      <div id="mag" class="value">0</div>
     </div>
 
     <div class="card">
-      <h3>EVENT COUNTS</h3>
+      <h3>Events</h3>
+
       <div class="event-box">
         <div class="event">Collision<br><span id="c1">0</span></div>
         <div class="event">Rash<br><span id="c2">0</span></div>
       </div>
+
       <div class="event-box">
         <div class="event">Tow<br><span id="c3">0</span></div>
         <div class="event">Topple<br><span id="c4">0</span></div>
       </div>
+
+      <!-- 🔥 RESET BUTTON -->
+      <button onclick="resetCounts()">Reset Counters</button>
     </div>
 
     <div class="card">
-      <h3>EVENT LOG</h3>
+      <h3>Event Log</h3>
       <div id="log" class="log"></div>
     </div>
 
@@ -185,6 +201,11 @@ let counts = {
   TOW: 0,
   TOPPLE: 0
 };
+
+// Reset
+function resetCounts() {
+  counts = { COLLISION:0, RASH:0, TOW:0, TOPPLE:0 };
+}
 
 // Chart
 let labels = [];
@@ -210,6 +231,12 @@ const chart = new Chart(ctx, {
   }
 });
 
+// 🔥 MAP INIT
+let map = L.map('map').setView([28.0, 77.0], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let marker = L.marker([28.0, 77.0]).addTo(map);
+
+// Socket
 socket.on("data", (msg) => {
   const d = JSON.parse(msg);
 
@@ -220,7 +247,7 @@ socket.on("data", (msg) => {
   document.getElementById("mag").innerText = d.mag.toFixed(2);
   document.getElementById("state").innerText = d.state;
 
-  // Count events
+  // Count
   if (counts[d.state] !== undefined) {
     counts[d.state]++;
   }
@@ -252,6 +279,13 @@ socket.on("data", (msg) => {
   }
 
   chart.update();
+
+  // 🔥 MAP UPDATE
+  if (d.lat && d.lng) {
+    const pos = [parseFloat(d.lat), parseFloat(d.lng)];
+    marker.setLatLng(pos);
+    map.setView(pos, 15);
+  }
 });
 </script>
 
