@@ -10,7 +10,7 @@ const io = socketIo(server);
 // MQTT CONFIG
 const client = mqtt.connect("mqtts://f1108f1ecd8140f98e0b481a54f10251.s1.eu.hivemq.cloud:8883", {
     username: "esp32",
-    password: "123456"
+    password: "Esp1234567"
 });
 
 client.on("connect", () => {
