@@ -6,79 +6,83 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- MAP -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     body {
       margin: 0;
-      font-family: "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #0b1c2c, #050b14);
+      font-family: 'Segoe UI';
+      background: #050b14;
       color: #00ffc3;
     }
 
-    h1 {
-      text-align: center;
+    header {
+      display: flex;
+      justify-content: space-between;
       padding: 15px;
+      background: #0b1c2c;
+      border-bottom: 1px solid #00ffc355;
     }
 
-    .container {
+    .tabs button {
+      background: none;
+      border: none;
+      color: #00ffc3;
+      margin: 0 10px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .active-tab {
+      border-bottom: 2px solid #00ffc3;
+    }
+
+    .page {
+      display: none;
+      padding: 20px;
+    }
+
+    .active {
+      display: block;
+    }
+
+    .grid {
       display: grid;
       grid-template-columns: 2fr 1fr;
       gap: 20px;
-      padding: 20px;
     }
 
     .card {
       background: #0b1c2c;
-      border-radius: 12px;
       padding: 15px;
+      border-radius: 12px;
       box-shadow: 0 0 20px rgba(0,255,200,0.1);
     }
 
     .flex {
       display: flex;
-      justify-content: space-around;
       gap: 10px;
     }
 
     .axis {
       flex: 1;
+      text-align: center;
       background: #071421;
-      padding: 15px;
+      padding: 10px;
       border-radius: 10px;
-      text-align: center;
     }
 
-    .value {
-      font-size: 26px;
-      font-weight: bold;
-    }
-
-    .status {
-      text-align: center;
-      margin-top: 10px;
-      padding: 8px;
-      border-radius: 20px;
-      background: #003d2e;
-    }
-
-    .right-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .event-box {
-      display: flex;
+    #map {
+      height: 300px;
+      border-radius: 10px;
     }
 
     .event {
-      flex: 1;
-      margin: 5px;
-      padding: 10px;
       background: #071421;
+      padding: 10px;
+      margin: 5px;
       border-radius: 8px;
       text-align: center;
     }
@@ -89,204 +93,181 @@
       font-size: 12px;
     }
 
-    #map {
-      height: 300px;
-      border-radius: 10px;
-      margin-top: 10px;
-    }
-
     button {
       margin-top: 10px;
-      padding: 10px;
+      padding: 8px;
       background: #00ffc3;
       border: none;
       border-radius: 8px;
       cursor: pointer;
-    }
-
-    canvas {
-      background: #071421;
-      border-radius: 10px;
-      padding: 10px;
     }
   </style>
 </head>
 
 <body>
 
-<h1>🚗 VEHICLE MONITOR</h1>
+<header>
+  <h2>🚗 Vehicle Monitor</h2>
 
-<div class="container">
-
-  <!-- LEFT -->
-  <div>
-
-    <div class="card">
-      <h3>ADXL345</h3>
-
-      <div class="flex">
-        <div class="axis">
-          <h3>X</h3>
-          <div id="ax" class="value">0</div>
-        </div>
-
-        <div class="axis">
-          <h3>Y</h3>
-          <div id="ay" class="value">0</div>
-        </div>
-
-        <div class="axis">
-          <h3>Z</h3>
-          <div id="az" class="value">0</div>
-        </div>
-      </div>
-
-      <div id="state" class="status">NORMAL</div>
-    </div>
-
-    <div class="card">
-      <h3>Acceleration Graph</h3>
-      <canvas id="chart"></canvas>
-    </div>
-
-    <!-- 🔥 MAP ADDED -->
-    <div class="card">
-      <h3>Live Location</h3>
-      <div id="map"></div>
-    </div>
-
+  <div class="tabs">
+    <button onclick="showTab('live')" id="tab-live" class="active-tab">LIVE</button>
+    <button onclick="showTab('history')" id="tab-history">HISTORY</button>
   </div>
+</header>
 
-  <!-- RIGHT -->
-  <div class="right-panel">
+<!-- LIVE PAGE -->
+<div id="live" class="page active">
+  <div class="grid">
 
-    <div class="card">
-      <h3>Magnitude</h3>
-      <div id="mag" class="value">0</div>
-    </div>
+    <!-- LEFT -->
+    <div>
 
-    <div class="card">
-      <h3>Events</h3>
-
-      <div class="event-box">
-        <div class="event">Collision<br><span id="c1">0</span></div>
-        <div class="event">Rash<br><span id="c2">0</span></div>
+      <div class="card">
+        <h3>Accelerometer</h3>
+        <div class="flex">
+          <div class="axis">X<br><span id="ax">0</span></div>
+          <div class="axis">Y<br><span id="ay">0</span></div>
+          <div class="axis">Z<br><span id="az">0</span></div>
+        </div>
       </div>
 
-      <div class="event-box">
-        <div class="event">Tow<br><span id="c3">0</span></div>
-        <div class="event">Topple<br><span id="c4">0</span></div>
+      <div class="card">
+        <h3>Graph</h3>
+        <canvas id="chart"></canvas>
       </div>
 
-      <!-- 🔥 RESET BUTTON -->
-      <button onclick="resetCounts()">Reset Counters</button>
+      <div class="card">
+        <h3>Map</h3>
+        <div id="map"></div>
+      </div>
+
     </div>
 
-    <div class="card">
-      <h3>Event Log</h3>
-      <div id="log" class="log"></div>
-    </div>
+    <!-- RIGHT -->
+    <div>
 
+      <div class="card">
+        <h3>Status</h3>
+        <h2 id="state">NORMAL</h2>
+        <p>Speed: <span id="speed">0</span> km/h</p>
+        <p>Sats: <span id="sats">0</span></p>
+      </div>
+
+      <div class="card">
+        <h3>Event Counters</h3>
+        <div class="flex">
+          <div class="event">Collision<br><span id="c1">0</span></div>
+          <div class="event">Rash<br><span id="c2">0</span></div>
+        </div>
+        <div class="flex">
+          <div class="event">Tow<br><span id="c3">0</span></div>
+          <div class="event">Topple<br><span id="c4">0</span></div>
+        </div>
+
+        <button onclick="reset()">Reset</button>
+      </div>
+
+      <div class="card">
+        <h3>Live Events</h3>
+        <div id="log" class="log"></div>
+      </div>
+
+    </div>
   </div>
+</div>
 
+<!-- HISTORY PAGE -->
+<div id="history" class="page">
+  <div class="card">
+    <h3>Event History</h3>
+    <div id="historyLog" class="log"></div>
+  </div>
 </div>
 
 <script>
-const socket = io({ transports: ["websocket"] });
+const socket = io();
 
-// Counters
-let counts = {
-  COLLISION: 0,
-  RASH: 0,
-  TOW: 0,
-  TOPPLE: 0
-};
+let counts = { COLLISION:0, RASH:0, TOW:0, TOPPLE:0 };
+let history = [];
 
-// Reset
-function resetCounts() {
-  counts = { COLLISION:0, RASH:0, TOW:0, TOPPLE:0 };
-}
+// MAP
+let map = L.map('map').setView([28,77], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let marker = L.marker([28,77]).addTo(map);
 
-// Chart
-let labels = [];
-let axData = [];
-let ayData = [];
-let azData = [];
-
-const ctx = document.getElementById("chart").getContext("2d");
-
-const chart = new Chart(ctx, {
+// CHART
+let labels = [], axData=[], ayData=[], azData=[];
+const chart = new Chart(document.getElementById("chart"), {
   type: "line",
   data: {
-    labels: labels,
+    labels,
     datasets: [
-      { label: "X", data: axData, borderColor: "cyan" },
-      { label: "Y", data: ayData, borderColor: "yellow" },
-      { label: "Z", data: azData, borderColor: "green" }
+      { label:"X", data:axData },
+      { label:"Y", data:ayData },
+      { label:"Z", data:azData }
     ]
   },
-  options: {
-    animation: false,
-    scales: { y: { min: -2, max: 2 } }
-  }
+  options:{ animation:false }
 });
 
-// 🔥 MAP INIT
-let map = L.map('map').setView([28.0, 77.0], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-let marker = L.marker([28.0, 77.0]).addTo(map);
-
-// Socket
-socket.on("data", (msg) => {
+// SOCKET
+socket.on("data", msg => {
   const d = JSON.parse(msg);
 
-  // Values
   document.getElementById("ax").innerText = d.ax.toFixed(2);
   document.getElementById("ay").innerText = d.ay.toFixed(2);
   document.getElementById("az").innerText = d.az.toFixed(2);
-  document.getElementById("mag").innerText = d.mag.toFixed(2);
+
+  document.getElementById("speed").innerText = d.speed || 0;
+  document.getElementById("sats").innerText = d.sats || 0;
   document.getElementById("state").innerText = d.state;
 
-  // Count
-  if (counts[d.state] !== undefined) {
-    counts[d.state]++;
-  }
+  if(counts[d.state] !== undefined) counts[d.state]++;
 
   document.getElementById("c1").innerText = counts.COLLISION;
   document.getElementById("c2").innerText = counts.RASH;
   document.getElementById("c3").innerText = counts.TOW;
   document.getElementById("c4").innerText = counts.TOPPLE;
 
-  // Log
-  if (d.state !== "NORMAL") {
+  if(d.state !== "NORMAL"){
     const log = document.getElementById("log");
     const entry = document.createElement("div");
-    entry.innerText = `${d.state} | X:${d.ax.toFixed(2)} Y:${d.ay.toFixed(2)} Z:${d.az.toFixed(2)}`;
+    entry.innerText = `${d.state} | X:${d.ax}`;
     log.prepend(entry);
+
+    history.unshift(entry.innerText);
+    document.getElementById("historyLog").innerHTML = history.join("<br>");
   }
 
-  // Graph
+  // chart
   labels.push("");
   axData.push(d.ax);
   ayData.push(d.ay);
   azData.push(d.az);
 
-  if (labels.length > 50) {
-    labels.shift();
-    axData.shift();
-    ayData.shift();
-    azData.shift();
+  if(labels.length>50){
+    labels.shift(); axData.shift(); ayData.shift(); azData.shift();
   }
-
   chart.update();
 
-  // 🔥 MAP UPDATE
-  if (d.lat && d.lng) {
-    const pos = [parseFloat(d.lat), parseFloat(d.lng)];
-    marker.setLatLng(pos);
-    map.setView(pos, 15);
+  // map
+  if(d.lat && d.lng){
+    marker.setLatLng([d.lat,d.lng]);
+    map.setView([d.lat,d.lng], 15);
   }
 });
+
+function reset(){
+  counts = { COLLISION:0, RASH:0, TOW:0, TOPPLE:0 };
+}
+
+function showTab(tab){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById(tab).classList.add("active");
+
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active-tab"));
+  document.getElementById("tab-"+tab).classList.add("active-tab");
+}
 </script>
 
 </body>
