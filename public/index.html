@@ -5,7 +5,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
 
-  <!-- LEAFLET -->
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -19,7 +19,6 @@
 
     h1 {
       color: #00ffcc;
-      margin-top: 20px;
     }
 
     .container {
@@ -30,16 +29,14 @@
 
     .card {
       background: #222;
-      padding: 20px;
-      margin: 15px;
-      border-radius: 12px;
-      width: 250px;
-      box-shadow: 0 0 10px rgba(0,255,200,0.3);
+      padding: 15px;
+      margin: 10px;
+      border-radius: 10px;
+      width: 200px;
     }
 
     .value {
-      font-size: 24px;
-      margin-top: 10px;
+      font-size: 20px;
       color: #00ffcc;
     }
 
@@ -54,7 +51,7 @@
 
 <body>
 
-<h1>🚗 Vehicle Monitoring Dashboard</h1>
+<h1>🚗 Vehicle Dashboard</h1>
 
 <div class="container">
 
@@ -65,7 +62,7 @@
 
   <div class="card">
     <h3>Speed</h3>
-    <div id="speed" class="value">0 km/h</div>
+    <div id="speed" class="value">0</div>
   </div>
 
   <div class="card">
@@ -83,9 +80,29 @@
     <div id="lng" class="value">0</div>
   </div>
 
+  <!-- NEW ADXL DATA -->
+  <div class="card">
+    <h3>AX</h3>
+    <div id="ax" class="value">0</div>
+  </div>
+
+  <div class="card">
+    <h3>AY</h3>
+    <div id="ay" class="value">0</div>
+  </div>
+
+  <div class="card">
+    <h3>AZ</h3>
+    <div id="az" class="value">0</div>
+  </div>
+
+  <div class="card">
+    <h3>Magnitude</h3>
+    <div id="mag" class="value">0</div>
+  </div>
+
 </div>
 
-<!-- MAP -->
 <div id="map"></div>
 
 <script>
@@ -93,25 +110,28 @@ const socket = io({
   transports: ["websocket"]
 });
 
-// Leaflet map
+// Map
 let map = L.map('map').setView([28.0, 77.0], 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let marker = L.marker([28.0, 77.0]).addTo(map);
 
 socket.on("data", (msg) => {
-    console.log("UI received:", msg);
-
     const data = JSON.parse(msg);
 
+    console.log("DATA:", data);
+
     document.getElementById("state").innerText = data.state;
-    document.getElementById("speed").innerText = data.speed + " km/h";
+    document.getElementById("speed").innerText = data.speed;
     document.getElementById("sats").innerText = data.sats;
     document.getElementById("lat").innerText = data.lat;
     document.getElementById("lng").innerText = data.lng;
+
+    document.getElementById("ax").innerText = data.ax;
+    document.getElementById("ay").innerText = data.ay;
+    document.getElementById("az").innerText = data.az;
+    document.getElementById("mag").innerText = data.mag;
 
     if (data.lat && data.lng) {
         const lat = parseFloat(data.lat);
