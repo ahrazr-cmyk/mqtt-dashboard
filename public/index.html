@@ -1,105 +1,537 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Vehicle Monitor</title>
+  <meta charset="UTF-8"/>
+  <title>Smart Vehicle Telemetry</title>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- MAP -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 
   <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI';
-      background: #050b14;
-      color: #00ffc3;
+    :root {
+      --bg:       #04080f;
+      --bg2:      #080f1a;
+      --bg3:      #0b1525;
+      --amber:    #ffb300;
+      --amber2:   #ff8c00;
+      --cyan:     #00d4ff;
+      --red:      #ff3c3c;
+      --green:    #00ff9d;
+      --text:     #c8daf0;
+      --muted:    #4a6080;
+      --border:   rgba(255,179,0,0.18);
+      --glow:     0 0 18px rgba(255,179,0,0.22);
+      --glow-lg:  0 0 40px rgba(255,179,0,0.14);
     }
 
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── dot-grid background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255,179,0,0.08) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HEADER ── */
     header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
       display: flex;
       justify-content: space-between;
-      padding: 15px;
-      background: #0b1c2c;
-      border-bottom: 1px solid #00ffc355;
+      align-items: center;
+      padding: 14px 28px;
+      background: rgba(4,8,15,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+    }
+
+    /* scan-line sweep */
+    header::after {
+      content: '';
+      position: absolute;
+      left: -100%;
+      top: 0;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,179,0,0.06), transparent);
+      animation: scan 4s linear infinite;
+    }
+
+    @keyframes scan { to { left: 160%; } }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--amber);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 0 14px rgba(255,179,0,0.5);
+      animation: pulse-ring 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%,100% { box-shadow: 0 0 10px rgba(255,179,0,0.4); }
+      50%      { box-shadow: 0 0 24px rgba(255,179,0,0.8); }
+    }
+
+    .logo h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 17px;
+      letter-spacing: 3px;
+      color: var(--amber);
+      text-shadow: 0 0 20px rgba(255,179,0,0.6);
+    }
+
+    .logo span {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      display: block;
+      margin-top: 1px;
+    }
+
+    /* live badge */
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--green);
+    }
+
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: blink 1.2s step-start infinite;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
     }
 
     .tabs button {
-      background: none;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 7px 18px;
+      background: transparent;
       border: none;
-      color: #00ffc3;
-      margin: 0 10px;
+      color: var(--muted);
       cursor: pointer;
-      font-weight: bold;
+      border-radius: 5px;
+      transition: all 0.25s;
     }
 
-    .active-tab {
-      border-bottom: 2px solid #00ffc3;
+    .tabs button.active-tab {
+      background: var(--amber);
+      color: #000;
+      font-weight: 700;
+      box-shadow: 0 0 14px rgba(255,179,0,0.5);
     }
 
-    .page {
-      display: none;
-      padding: 20px;
-    }
+    /* ── PAGES ── */
+    .page { display: none; padding: 22px 26px; position: relative; z-index: 1; }
+    .page.active { display: block; }
 
-    .active {
-      display: block;
-    }
-
-    .grid {
+    /* ── GPS STRIP ── */
+    .gps-strip {
       display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 20px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 22px;
     }
 
+    .gps-tile {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+
+    .gps-tile:hover { border-color: rgba(255,179,0,0.45); }
+
+    /* corner brackets */
+    .gps-tile::before,
+    .gps-tile::after {
+      content: '';
+      position: absolute;
+      width: 10px; height: 10px;
+      border-color: var(--amber);
+      border-style: solid;
+    }
+
+    .gps-tile::before { top: 5px; left: 5px; border-width: 1.5px 0 0 1.5px; }
+    .gps-tile::after  { bottom: 5px; right: 5px; border-width: 0 1.5px 1.5px 0; }
+
+    .gps-tile .label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .gps-tile .val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--amber);
+      text-shadow: 0 0 14px rgba(255,179,0,0.5);
+      transition: text-shadow 0.2s;
+    }
+
+    .gps-tile .unit {
+      font-size: 10px;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    /* ── MAIN GRID ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 18px;
+    }
+
+    /* ── CARD ── */
     .card {
-      background: #0b1c2c;
-      padding: 15px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
       border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,255,200,0.1);
+      padding: 20px;
+      margin-bottom: 18px;
+      position: relative;
+      box-shadow: var(--glow);
+      overflow: hidden;
     }
 
-    .flex {
+    .card:last-child { margin-bottom: 0; }
+
+    .card-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--muted);
+      margin-bottom: 16px;
       display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 12px;
+      background: var(--amber);
+      border-radius: 2px;
+      box-shadow: 0 0 8px var(--amber);
+    }
+
+    /* ── ACCEL ── */
+    .accel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .axis-tile {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 12px;
+      text-align: center;
+    }
+
+    .axis-label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .axis-val {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    #ax-val { color: #ff5c7a; text-shadow: 0 0 12px rgba(255,92,122,0.6); }
+    #ay-val { color: var(--cyan); text-shadow: 0 0 12px rgba(0,212,255,0.6); }
+    #az-val { color: var(--green); text-shadow: 0 0 12px rgba(0,255,157,0.6); }
+
+    /* bar underneath */
+    .axis-bar {
+      height: 3px;
+      background: var(--bg);
+      border-radius: 2px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .axis-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 50%;
+      transition: width 0.3s;
+    }
+
+    #bar-x .axis-bar-fill { background: #ff5c7a; box-shadow: 0 0 6px #ff5c7a; }
+    #bar-y .axis-bar-fill { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+    #bar-z .axis-bar-fill { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    /* ── MAP ── */
+    #map {
+      height: 270px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      filter: saturate(0.5) brightness(0.7);
+    }
+
+    /* ── STATUS PANEL ── */
+    .status-panel {
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    .status-ring {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      border: 3px solid var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+      box-shadow: 0 0 28px rgba(0,255,157,0.35), inset 0 0 18px rgba(0,255,157,0.08);
+      animation: rotate-ring 6s linear infinite;
+      position: relative;
+    }
+
+    .status-ring::after {
+      content: '';
+      position: absolute;
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      top: -5px; left: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 10px var(--green);
+    }
+
+    @keyframes rotate-ring { to { transform: rotate(360deg); } }
+
+    .status-inner { transform: rotate(0deg); animation: counter-rotate 6s linear infinite; }
+    @keyframes counter-rotate { to { transform: rotate(-360deg); } }
+
+    .status-icon { font-size: 30px; }
+
+    #state-text {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 15px;
+      letter-spacing: 4px;
+      color: var(--green);
+      text-shadow: 0 0 20px rgba(0,255,157,0.7);
+      transition: all 0.4s;
+    }
+
+    .status-sub {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      margin-top: 6px;
+    }
+
+    /* alert states */
+    .alert-collision #state-text,
+    .alert-collision .status-ring { color: var(--red); border-color: var(--red); box-shadow: 0 0 30px rgba(255,60,60,0.5); text-shadow: 0 0 20px rgba(255,60,60,0.8); }
+    .alert-rash #state-text,
+    .alert-rash .status-ring { color: var(--amber2); border-color: var(--amber2); }
+    .alert-tow #state-text,
+    .alert-tow .status-ring { color: var(--cyan); border-color: var(--cyan); }
+    .alert-topple #state-text,
+    .alert-topple .status-ring { color: #d04bff; border-color: #d04bff; }
+
+    /* ── COUNTERS ── */
+    .counter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
 
-    .axis {
-      flex: 1;
+    .counter-tile {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 10px;
       text-align: center;
-      background: #071421;
-      padding: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .counter-tile .c-label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 8px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .counter-tile .c-val {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .ct-collision .c-val { color: var(--red); text-shadow: 0 0 14px rgba(255,60,60,0.6); }
+    .ct-rash .c-val      { color: var(--amber); text-shadow: 0 0 14px rgba(255,179,0,0.6); }
+    .ct-tow .c-val       { color: var(--cyan); text-shadow: 0 0 14px rgba(0,212,255,0.6); }
+    .ct-topple .c-val    { color: #d04bff; text-shadow: 0 0 14px rgba(208,75,255,0.6); }
+
+    .counter-tile::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.04;
       border-radius: 10px;
     }
 
-    #map {
-      height: 300px;
-      border-radius: 10px;
-    }
+    .ct-collision::before { background: var(--red); }
+    .ct-rash::before      { background: var(--amber); }
+    .ct-tow::before       { background: var(--cyan); }
+    .ct-topple::before    { background: #d04bff; }
 
-    .event {
-      background: #071421;
-      padding: 10px;
-      margin: 5px;
+    /* reset btn */
+    .reset-btn {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      padding: 9px;
+      background: transparent;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      text-align: center;
+      color: var(--muted);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 9px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.25s;
     }
 
-    .log {
+    .reset-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+      box-shadow: 0 0 12px rgba(255,179,0,0.25);
+    }
+
+    /* ── EVENT LOG ── */
+    .log-area {
       max-height: 200px;
       overflow-y: auto;
-      font-size: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
     }
 
-    button {
-      margin-top: 10px;
-      padding: 8px;
-      background: #00ffc3;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
+    .log-entry {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      background: rgba(255,255,255,0.02);
+      border-left: 3px solid var(--muted);
+      font-size: 12px;
+      animation: slide-in 0.3s ease;
+    }
+
+    @keyframes slide-in { from { opacity: 0; transform: translateX(-8px); } }
+
+    .log-entry.COLLISION { border-left-color: var(--red); }
+    .log-entry.RASH      { border-left-color: var(--amber); }
+    .log-entry.TOW       { border-left-color: var(--cyan); }
+    .log-entry.TOPPLE    { border-left-color: #d04bff; }
+
+    .log-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 8px;
+      letter-spacing: 1px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .log-entry.COLLISION .log-badge { background: rgba(255,60,60,0.2); color: var(--red); }
+    .log-entry.RASH      .log-badge { background: rgba(255,179,0,0.2); color: var(--amber); }
+    .log-entry.TOW       .log-badge { background: rgba(0,212,255,0.2); color: var(--cyan); }
+    .log-entry.TOPPLE    .log-badge { background: rgba(208,75,255,0.2); color: #d04bff; }
+
+    .log-time { color: var(--muted); font-size: 11px; margin-left: auto; }
+
+    /* ── CHART ── */
+    canvas#chart { max-height: 180px; }
+
+    /* ── HISTORY PAGE ── */
+    #history .card { max-width: 900px; margin: 0 auto; }
+
+    /* ── DATA FLASH ANIMATION ── */
+    @keyframes data-flash {
+      0% { opacity: 1; }
+      30% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+
+    .flashing { animation: data-flash 0.25s ease; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 820px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .gps-strip { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -107,7 +539,15 @@
 <body>
 
 <header>
-  <h2>🚗 Vehicle Monitor</h2>
+  <div class="logo">
+    <div class="logo-icon">🚗</div>
+    <div>
+      <h1>TELEMETRY</h1>
+      <span>VEHICLE MONITORING SYSTEM v2.0</span>
+    </div>
+  </div>
+
+  <div class="live-badge"><div class="live-dot"></div>LIVE STREAM</div>
 
   <div class="tabs">
     <button onclick="showTab('live')" id="tab-live" class="active-tab">LIVE</button>
@@ -115,160 +555,284 @@
   </div>
 </header>
 
-<!-- LIVE PAGE -->
+<!-- ══ LIVE PAGE ══ -->
 <div id="live" class="page active">
-  <div class="grid">
 
-    <!-- LEFT -->
+  <!-- GPS STRIP -->
+  <div class="gps-strip">
+    <div class="gps-tile">
+      <div class="label">LATITUDE</div>
+      <div class="val" id="lat">00.0000</div>
+    </div>
+    <div class="gps-tile">
+      <div class="label">LONGITUDE</div>
+      <div class="val" id="lng">00.0000</div>
+    </div>
+    <div class="gps-tile">
+      <div class="label">SPEED</div>
+      <div class="val" id="speed">0<span class="unit">km/h</span></div>
+    </div>
+    <div class="gps-tile">
+      <div class="label">SATELLITES</div>
+      <div class="val" id="sats">0</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- LEFT COLUMN -->
     <div>
 
+      <!-- ACCELEROMETER -->
       <div class="card">
-        <h3>Accelerometer</h3>
-        <div class="flex">
-          <div class="axis">X<br><span id="ax">0</span></div>
-          <div class="axis">Y<br><span id="ay">0</span></div>
-          <div class="axis">Z<br><span id="az">0</span></div>
+        <div class="card-title">ACCELEROMETER</div>
+        <div class="accel-grid">
+          <div class="axis-tile">
+            <div class="axis-label">AXIS — X</div>
+            <div class="axis-val" id="ax-val">0.00</div>
+            <div class="axis-bar" id="bar-x"><div class="axis-bar-fill"></div></div>
+          </div>
+          <div class="axis-tile">
+            <div class="axis-label">AXIS — Y</div>
+            <div class="axis-val" id="ay-val">0.00</div>
+            <div class="axis-bar" id="bar-y"><div class="axis-bar-fill"></div></div>
+          </div>
+          <div class="axis-tile">
+            <div class="axis-label">AXIS — Z</div>
+            <div class="axis-val" id="az-val">0.00</div>
+            <div class="axis-bar" id="bar-z"><div class="axis-bar-fill"></div></div>
+          </div>
         </div>
       </div>
 
+      <!-- CHART -->
       <div class="card">
-        <h3>Graph</h3>
+        <div class="card-title">ACCELERATION GRAPH</div>
         <canvas id="chart"></canvas>
       </div>
 
+      <!-- MAP -->
       <div class="card">
-        <h3>Map</h3>
+        <div class="card-title">LIVE LOCATION</div>
         <div id="map"></div>
       </div>
 
     </div>
 
-    <!-- RIGHT -->
+    <!-- RIGHT COLUMN -->
     <div>
 
-      <div class="card">
-        <h3>Status</h3>
-        <h2 id="state">NORMAL</h2>
-        <p>Speed: <span id="speed">0</span> km/h</p>
-        <p>Sats: <span id="sats">0</span></p>
+      <!-- STATUS -->
+      <div class="card" id="status-card">
+        <div class="card-title">VEHICLE STATUS</div>
+        <div class="status-panel">
+          <div class="status-ring">
+            <div class="status-inner">
+              <div class="status-icon">🚗</div>
+            </div>
+          </div>
+          <div id="state-text">NORMAL</div>
+          <div class="status-sub">ALL SYSTEMS OPERATIONAL</div>
+        </div>
       </div>
 
+      <!-- EVENT COUNTERS -->
       <div class="card">
-        <h3>Event Counters</h3>
-        <div class="flex">
-          <div class="event">Collision<br><span id="c1">0</span></div>
-          <div class="event">Rash<br><span id="c2">0</span></div>
+        <div class="card-title">EVENT COUNTERS</div>
+        <div class="counter-grid">
+          <div class="counter-tile ct-collision">
+            <div class="c-label">COLLISION</div>
+            <div class="c-val" id="c1">0</div>
+          </div>
+          <div class="counter-tile ct-rash">
+            <div class="c-label">RASH DRIVE</div>
+            <div class="c-val" id="c2">0</div>
+          </div>
+          <div class="counter-tile ct-tow">
+            <div class="c-label">TOW</div>
+            <div class="c-val" id="c3">0</div>
+          </div>
+          <div class="counter-tile ct-topple">
+            <div class="c-label">TOPPLE</div>
+            <div class="c-val" id="c4">0</div>
+          </div>
         </div>
-        <div class="flex">
-          <div class="event">Tow<br><span id="c3">0</span></div>
-          <div class="event">Topple<br><span id="c4">0</span></div>
-        </div>
-
-        <button onclick="reset()">Reset</button>
+        <button class="reset-btn" onclick="reset()">◈ RESET COUNTERS</button>
       </div>
 
+      <!-- LIVE EVENTS -->
       <div class="card">
-        <h3>Live Events</h3>
-        <div id="log" class="log"></div>
+        <div class="card-title">LIVE EVENTS</div>
+        <div id="log" class="log-area"></div>
       </div>
 
     </div>
   </div>
 </div>
 
-<!-- HISTORY PAGE -->
+<!-- ══ HISTORY PAGE ══ -->
 <div id="history" class="page">
   <div class="card">
-    <h3>Event History</h3>
-    <div id="historyLog" class="log"></div>
+    <div class="card-title">EVENT HISTORY LOG</div>
+    <div id="historyLog" class="log-area"></div>
   </div>
 </div>
 
+
 <script>
-const socket = io();
+  // ── MAP SETUP ──
+  const map = L.map('map').setView([28, 77], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OSM'
+  }).addTo(map);
+  const marker = L.marker([28, 77]).addTo(map);
 
-let counts = { COLLISION:0, RASH:0, TOW:0, TOPPLE:0 };
-let history = [];
+  // ── CHART SETUP ──
+  const labels = [], axData = [], ayData = [], azData = [];
+  const chart = new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'X', data: axData, borderColor: '#ff5c7a', backgroundColor: 'rgba(255,92,122,0.08)', tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Y', data: ayData, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.08)', tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Z', data: azData, borderColor: '#00ff9d', backgroundColor: 'rgba(0,255,157,0.08)', tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+      ]
+    },
+    options: {
+      animation: false,
+      plugins: { legend: { labels: { color: '#4a6080', font: { family: 'Share Tech Mono', size: 11 } } } },
+      scales: {
+        x: { display: false },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#4a6080', font: { family: 'Share Tech Mono', size: 10 } }
+        }
+      }
+    }
+  });
 
-// MAP
-let map = L.map('map').setView([28,77], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-let marker = L.marker([28,77]).addTo(map);
+  // ── STATE ──
+  let counts = { COLLISION: 0, RASH: 0, TOW: 0, TOPPLE: 0 };
+  let history = [];
 
-// CHART
-let labels = [], axData=[], ayData=[], azData=[];
-const chart = new Chart(document.getElementById("chart"), {
-  type: "line",
-  data: {
-    labels,
-    datasets: [
-      { label:"X", data:axData },
-      { label:"Y", data:ayData },
-      { label:"Z", data:azData }
-    ]
-  },
-  options:{ animation:false }
-});
+  const stateColors = {
+    NORMAL:    { ring: '#00ff9d', text: '#00ff9d', icon: '🚗', sub: 'ALL SYSTEMS OPERATIONAL' },
+    COLLISION: { ring: '#ff3c3c', text: '#ff3c3c', icon: '💥', sub: 'IMPACT DETECTED' },
+    RASH:      { ring: '#ff8c00', text: '#ff8c00', icon: '⚠️', sub: 'AGGRESSIVE DRIVING' },
+    TOW:       { ring: '#00d4ff', text: '#00d4ff', icon: '🚛', sub: 'TOW DETECTED' },
+    TOPPLE:    { ring: '#d04bff', text: '#d04bff', icon: '🔄', sub: 'TOPPLE ALERT' },
+  };
 
-// SOCKET
-socket.on("data", msg => {
-  const d = JSON.parse(msg);
+  // ── SOCKET ──
+  const socket = io();
 
-  document.getElementById("ax").innerText = d.ax.toFixed(2);
-  document.getElementById("ay").innerText = d.ay.toFixed(2);
-  document.getElementById("az").innerText = d.az.toFixed(2);
+  socket.on('data', msg => {
+    const d = JSON.parse(msg);
 
-  document.getElementById("speed").innerText = d.speed || 0;
-  document.getElementById("sats").innerText = d.sats || 0;
-  document.getElementById("state").innerText = d.state;
+    // GPS
+    flash('lat');  document.getElementById('lat').innerText  = (d.lat  || 0).toFixed ? (+d.lat||0).toFixed(4) : (d.lat||0);
+    flash('lng');  document.getElementById('lng').innerText  = (d.lng  || 0).toFixed ? (+d.lng||0).toFixed(4) : (d.lng||0);
+    flash('speed'); document.getElementById('speed').innerHTML = `${d.speed||0}<span class="unit">km/h</span>`;
+    flash('sats'); document.getElementById('sats').innerText = d.sats || 0;
 
-  if(counts[d.state] !== undefined) counts[d.state]++;
+    // Accel
+    const ax = d.ax || 0, ay = d.ay || 0, az = d.az || 0;
+    document.getElementById('ax-val').innerText = ax.toFixed(2);
+    document.getElementById('ay-val').innerText = ay.toFixed(2);
+    document.getElementById('az-val').innerText = az.toFixed(2);
 
-  document.getElementById("c1").innerText = counts.COLLISION;
-  document.getElementById("c2").innerText = counts.RASH;
-  document.getElementById("c3").innerText = counts.TOW;
-  document.getElementById("c4").innerText = counts.TOPPLE;
+    // Axis bars (map -20..20 → 0..100%)
+    setBar('bar-x', ax);
+    setBar('bar-y', ay);
+    setBar('bar-z', az);
 
-  if(d.state !== "NORMAL"){
-    const log = document.getElementById("log");
-    const entry = document.createElement("div");
-    entry.innerText = `${d.state} | X:${d.ax}`;
-    log.prepend(entry);
+    // Status
+    const state = d.state || 'NORMAL';
+    updateStatus(state);
 
-    history.unshift(entry.innerText);
-    document.getElementById("historyLog").innerHTML = history.join("<br>");
+    // Counters
+    if (counts[state] !== undefined) counts[state]++;
+    document.getElementById('c1').innerText = counts.COLLISION;
+    document.getElementById('c2').innerText = counts.RASH;
+    document.getElementById('c3').innerText = counts.TOW;
+    document.getElementById('c4').innerText = counts.TOPPLE;
+
+    // Log
+    if (state !== 'NORMAL') {
+      const entry = { state, time: new Date().toLocaleTimeString() };
+      history.unshift(entry);
+      renderLog('log', history.slice(0, 12));
+      renderLog('historyLog', history);
+    }
+
+    // Chart
+    labels.push('');
+    axData.push(ax); ayData.push(ay); azData.push(az);
+    if (labels.length > 60) { labels.shift(); axData.shift(); ayData.shift(); azData.shift(); }
+    chart.update();
+
+    // Map
+    if (d.lat && d.lng) {
+      marker.setLatLng([d.lat, d.lng]);
+      map.setView([d.lat, d.lng], 15);
+    }
+  });
+
+  // ── HELPERS ──
+  function flash(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('flashing');
+    void el.offsetWidth;
+    el.classList.add('flashing');
   }
 
-  // chart
-  labels.push("");
-  axData.push(d.ax);
-  ayData.push(d.ay);
-  azData.push(d.az);
-
-  if(labels.length>50){
-    labels.shift(); axData.shift(); ayData.shift(); azData.shift();
+  function setBar(barId, val) {
+    const pct = Math.min(100, Math.max(0, ((val + 20) / 40) * 100));
+    document.getElementById(barId).querySelector('.axis-bar-fill').style.width = pct + '%';
   }
-  chart.update();
 
-  // map
-  if(d.lat && d.lng){
-    marker.setLatLng([d.lat,d.lng]);
-    map.setView([d.lat,d.lng], 15);
+  function updateStatus(state) {
+    const cfg = stateColors[state] || stateColors.NORMAL;
+    const ring = document.querySelector('.status-ring');
+    const text = document.getElementById('state-text');
+    const sub  = document.querySelector('.status-sub');
+    const icon = document.querySelector('.status-icon');
+
+    ring.style.borderColor = cfg.ring;
+    ring.style.boxShadow   = `0 0 28px ${cfg.ring}55, inset 0 0 18px ${cfg.ring}11`;
+    ring.querySelector('.status-inner::after') && void 0; // no-op
+    text.style.color      = cfg.text;
+    text.style.textShadow = `0 0 20px ${cfg.text}bb`;
+    text.innerText        = state;
+    sub.innerText         = cfg.sub;
+    icon.innerText        = cfg.icon;
   }
-});
 
-function reset(){
-  counts = { COLLISION:0, RASH:0, TOW:0, TOPPLE:0 };
-}
+  function renderLog(containerId, entries) {
+    document.getElementById(containerId).innerHTML = entries.map(e =>
+      `<div class="log-entry ${e.state}">
+        <span class="log-badge">${e.state}</span>
+        <span>Event detected</span>
+        <span class="log-time">${e.time}</span>
+      </div>`
+    ).join('');
+  }
 
-function showTab(tab){
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  document.getElementById(tab).classList.add("active");
+  function reset() {
+    counts = { COLLISION: 0, RASH: 0, TOW: 0, TOPPLE: 0 };
+    document.getElementById('c1').innerText = 0;
+    document.getElementById('c2').innerText = 0;
+    document.getElementById('c3').innerText = 0;
+    document.getElementById('c4').innerText = 0;
+  }
 
-  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active-tab"));
-  document.getElementById("tab-"+tab).classList.add("active-tab");
-}
+  function showTab(tab) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active-tab'));
+    document.getElementById('tab-' + tab).classList.add('active-tab');
+  }
 </script>
-
 </body>
 </html>
