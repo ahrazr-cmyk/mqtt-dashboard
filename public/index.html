@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vehicle Dashboard</title>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #111;
+      color: white;
+      text-align: center;
+    }
+
+    h1 {
+      color: #00ffcc;
+      margin-top: 20px;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .card {
+      background: #222;
+      padding: 20px;
+      margin: 15px;
+      border-radius: 12px;
+      width: 250px;
+      box-shadow: 0 0 10px rgba(0,255,200,0.3);
+    }
+
+    .value {
+      font-size: 24px;
+      margin-top: 10px;
+      color: #00ffcc;
+    }
+
+    #map {
+      height: 300px;
+      width: 90%;
+      margin: 20px auto;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🚗 Vehicle Monitoring Dashboard</h1>
+
+<div class="container">
+
+  <div class="card">
+    <h3>State</h3>
+    <div id="state" class="value">---</div>
+  </div>
+
+  <div class="card">
+    <h3>Speed</h3>
+    <div id="speed" class="value">0 km/h</div>
+  </div>
+
+  <div class="card">
+    <h3>Satellites</h3>
+    <div id="sats" class="value">0</div>
+  </div>
+
+  <div class="card">
+    <h3>Latitude</h3>
+    <div id="lat" class="value">0</div>
+  </div>
+
+  <div class="card">
+    <h3>Longitude</h3>
+    <div id="lng" class="value">0</div>
+  </div>
+
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<script>
+const socket = io();
+
+let map, marker;
+
+function initMap(lat = 28.0, lng = 77.0) {
+    map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 15,
+        center: { lat, lng },
+    });
+
+    marker = new google.maps.Marker({
+        position: { lat, lng },
+        map: map
+    });
+}
+
+socket.on("data", (msg) => {
+    const data = JSON.parse(msg);
+
+    document.getElementById("state").innerText = data.state;
+    document.getElementById("speed").innerText = data.speed + " km/h";
+    document.getElementById("sats").innerText = data.sats;
+    document.getElementById("lat").innerText = data.lat;
+    document.getElementById("lng").innerText = data.lng;
+
+    if (map && data.lat && data.lng) {
+        const pos = { lat: parseFloat(data.lat), lng: parseFloat(data.lng) };
+        map.setCenter(pos);
+        marker.setPosition(pos);
+    }
+});
+</script>
+
+<!-- Google Maps API -->
+<script async defer
+src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
+</script>
+
+</body>
+</html>
