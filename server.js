@@ -5,31 +5,38 @@ const socketIo = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+
+const io = socketIo(server, {
+  cors: { origin: "*" }
+});
 
 // MQTT CONFIG
-const client = mqtt.connect("mqtts://f1108f1ecd8140f98e0b481a54f10251.s1.eu.hivemq.cloud:8883", {
-    username: "esp32",
-    password: "Esp1234567"
+const client = mqtt.connect({
+  host: "f1108f1ecd8140f98e0b481a54f10251.s1.eu.hivemq.cloud",
+  port: 8883,
+  protocol: "mqtts",
+  username: "esp32",
+  password: "123456",
+  rejectUnauthorized: false
 });
 
 client.on("connect", () => {
-    console.log("✅ MQTT Connected");
-    client.subscribe("vehicle/data");
+  console.log("✅ MQTT Connected");
+  client.subscribe("vehicle/data");
 });
 
 client.on("message", (topic, message) => {
-    const data = message.toString();
-    console.log("📩 Received:", data);
-    io.emit("data", data);
+  const data = message.toString();
+  console.log("📩 MQTT DATA:", data);
+
+  io.emit("data", data);
 });
 
 // Serve frontend
 app.use(express.static("public"));
 
-// IMPORTANT for Railway/Render
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 server.listen(PORT, () => {
-    console.log("🚀 Dashboard running on port", PORT);
+  console.log("🚀 Dashboard running at http://localhost:3000");
 });
