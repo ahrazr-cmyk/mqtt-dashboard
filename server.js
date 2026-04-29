@@ -10,6 +10,15 @@ const io = socketIo(server, {
   cors: { origin: "*" }
 });
 
+
+const mongoose = require("mongoose");
+
+mongoose.connect("mongodb+srv://ahrazrafiq28_db_user:Rbw2w3K2ONltWxau@cluster0.jcv2psq.mongodb.net/?appName=Cluster0");
+
+mongoose.connection.on("connected", () => {
+  console.log("✅ MongoDB Connected");
+});
+
 // MQTT CONFIG
 const client = mqtt.connect({
   host: "f1108f1ecd8140f98e0b481a54f10251.s1.eu.hivemq.cloud",
