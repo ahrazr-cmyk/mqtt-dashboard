@@ -13,10 +13,13 @@ const io = socketIo(server, {
 
 const mongoose = require("mongoose");
 
-mongoose.connect("mongodb+srv://ahrazrafiq28_db_user:Rbw2w3K2ONltWxau@cluster0.jcv2psq.mongodb.net/?appName=Cluster0");
+mongoose.connect(process.env.mongodb+srv://ahrazrafiq28_db_user:Rbw2w3K2ONltWxau@cluster0.jcv2psq.mongodb.net/?appName=Cluster0, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log("✅ MongoDB Connected"))
+.catch(err => console.log("❌ MongoDB Error:", err.message));
 
-mongoose.connection.on("connected", () => {
-  console.log("✅ MongoDB Connected");
 });
 
 // MQTT CONFIG
